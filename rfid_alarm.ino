@@ -11,7 +11,7 @@
 #include <MFRC522.h>
 
 #define SS_PIN  5  // ESP32 pin GPIO5 
-#define RST_PIN 27 // ESP32 pin GPIO27 
+#define RST_PIN 21 // ESP32 pin GPIO27 
 
 #include "pitches.h"
 #define BUZZER_PIN  22 // ESP32 pin GPIO18 connected to piezo buzzer
