@@ -4,12 +4,15 @@
 #include <MFRC522DriverSPI.h>
 #include <MFRC522DriverPinSimple.h>
 #include <MFRC522Debug.h>
+#include <vector> 
 
 #define SS_PIN 5  // ESP32 pin GPIO5 
 #define RST_PIN 21 // ESP32 pin GPIO27 
 #define RED_LED 12 
 #define GREEN_LED 14
-String VALID_ID = "73 2E 88 11";
+#define ADD_BUTTON 33
+#define REMOVE_BUTTON 32
+std::vector<String> allowedIDs;
 
 MFRC522DriverPinSimple ss_pin(SS_PIN); // Configurable, see typical pin layout above.
 
@@ -35,11 +38,15 @@ void setup() {
   mfrc522.PCD_Init();                                     // Init MFRC522 board.
   pinMode(12, OUTPUT);
   pinMode(14, OUTPUT);
+  pinMode(ADD_BUTTON, INPUT_PULLUP);
+  pinMode(REMOVE_BUTTON, INPUT_PULLUP);
+  addCard("73 2E 88 11");
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 }
 
 //Função que lê o cartão.
 void readRfid() {
+  String ID = "";
   // Reset the loop if no new card present on the sensor/reader. This saves the entire process when idle.
   if (!mfrc522.PICC_IsNewCardPresent())
   {
@@ -54,21 +61,25 @@ void readRfid() {
 
   Serial.println("Imprimindo o ID:");
   Serial.println("--------------------------");
-  for (byte i = 0; i < mfrc522.uid.size; i++)
-  {
+  ID = getID(tagContent);
+  permissionStatus(ID);
+  Serial.println(ID);
+  ID = "";
+}
+
+//Isso vai ser importante dps confia
+String getID(String tagContent){
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
     tagContent.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
     tagContent.concat(String(mfrc522.uid.uidByte[i], HEX));
   }
   tagContent.remove(tagContent.indexOf(' '), 1); //Remove o primeiro espaço do ID
   tagContent.toUpperCase();
-  permissionStatus(tagContent);
-  Serial.println(tagContent);
-  tagContent = "";
+  return tagContent;
 }
-
 //Função que libera a tranca
 void permissionStatus(String tagContent){
-  if(tagContent == VALID_ID){
+  if(std::find(allowedIDs.begin(), allowedIDs.end(), tagContent) != allowedIDs.end()){
     digitalWrite(GREEN_LED, HIGH);
     digitalWrite(RED_LED, LOW);
     Serial.println("true");
@@ -93,6 +104,35 @@ void permissionStatus(String tagContent){
     }
   }
 }
+
+void addCard(String newID) {
+  if (std::find(allowedIDs.begin(), allowedIDs.end(), newID) == allowedIDs.end()) {
+    allowedIDs.push_back(newID);
+    Serial.println("Card added successfully!");
+  } else {
+    Serial.println("Card is already in the list.");
+  }
+}
+
+// Função para remover um cartão da lista de IDs permitidos
+void removeCard(String removeID) {
+  auto it = std::find(allowedIDs.begin(), allowedIDs.end(), removeID);
+  if (it != allowedIDs.end()) {
+    allowedIDs.erase(it);
+    Serial.println("Card removed successfully!");
+  } else {
+    Serial.println("Card not found in the list.");
+  }
+}
 void loop() {
+  /*Serial.println("button 1: ");
+  Serial.print(digitalRead(ADD_BUTTON));
+  Serial.println("");
+  if (digitalRead(ADD_BUTTON) == 0){
+    
+  }
+  Serial.println("button 2: ");
+  Serial.print(digitalRead(REMOVE_BUTTON));
+  Serial.println("");*/
   readRfid();
 }
