@@ -12,6 +12,7 @@
 #define GREEN_LED 14
 #define ADD_BUTTON 33
 #define REMOVE_BUTTON 32
+//#define RELAY 26
 std::vector<String> allowedIDs;
 
 MFRC522DriverPinSimple ss_pin(SS_PIN); // Configurable, see typical pin layout above.
@@ -40,6 +41,8 @@ void setup() {
   pinMode(14, OUTPUT);
   pinMode(ADD_BUTTON, INPUT_PULLUP);
   pinMode(REMOVE_BUTTON, INPUT_PULLUP);
+  //pinMode(RELAY, OUTPUT);
+  //digitalWrite(RELAY, LOW);
   addCard("73 2E 88 11");
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 }
@@ -83,12 +86,14 @@ void permissionStatus(String tagContent){
     digitalWrite(GREEN_LED, HIGH);
     digitalWrite(RED_LED, LOW);
     Serial.println("true");
+    //digitalWrite(RELAY, LOW); //
     delay(1000);
     digitalWrite(GREEN_LED, LOW);
   }
   else{
     digitalWrite(RED_LED, HIGH);
     digitalWrite(GREEN_LED, LOW);
+    //digitalWrite(RELAY, HIGH); //
     Serial.println("false");
     bool alarm = true;
     while (alarm){
@@ -127,12 +132,21 @@ void removeCard(String removeID) {
 void loop() {
   /*Serial.println("button 1: ");
   Serial.print(digitalRead(ADD_BUTTON));
-  Serial.println("");
+  Serial.println("");*/
+  //Se o botão de adicionar for pressionado, adicione um ID a lista.
   if (digitalRead(ADD_BUTTON) == 0){
-    
+    addCard(getID(tagContent));
   }
-  Serial.println("button 2: ");
+  /*Serial.println("button 2: ");
   Serial.print(digitalRead(REMOVE_BUTTON));
   Serial.println("");*/
-  readRfid();
+  //Se o botão de remover for pressionado, remova um ID da lista.
+  if (digitalRead(REMOVE_BUTTON) == 0){
+    removeCard(getID(tagContent));
+  }
+  //Se nenhum botão for pressionado, operar normalmente.
+  if (digitalRead(ADD_BUTTON) != 0 && digitalRead(REMOVE_BUTTON) != 0){
+    readRfid();
+  }
+  
 }
