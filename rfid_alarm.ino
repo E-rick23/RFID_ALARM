@@ -175,17 +175,27 @@ void removeCard(String removeID) {
     Serial.println("Card not found in the list.");
   }
 }
+
+bool registryButtonPressed = false;
+bool removeButtonPressed = false;
+
 void loop() {
   //Se o botão de adicionar for pressionado, adiciona ID do próximo cartão que for lido pelo sensor ao sistema.
-  if (digitalRead(ADD_BUTTON) == 0){
+  if (digitalRead(ADD_BUTTON) == LOW && !registryButtonPressed) {
+    registryButtonPressed = true;
     addCard(getID(tagContent));
+  } else if(digitalRead(ADD_BUTTON) == HIGH) {
+    registryButtonPressed = false;
   }
   //Se o botão de remover for pressionado, remove do sistema o ID do próximo cartão que for lido pelo sensor.
-  if (digitalRead(REMOVE_BUTTON) == 0){
+  if (digitalRead(REMOVE_BUTTON) == LOW && !removeButtonPressed){
+    removeButtonPressed = true;
     removeCard(getID(tagContent));
+  } else if(digitalRead(REMOVE_BUTTON) == HIGH) {
+    removeButtonPressed = false;
   }
   //Se nenhum botão for pressionado, operar normalmente.
-  if (digitalRead(ADD_BUTTON) != 0 && digitalRead(REMOVE_BUTTON) != 0){
+  if (digitalRead(ADD_BUTTON) == HIGH && digitalRead(REMOVE_BUTTON) == HIGH){
     readRfid();
   }
   
