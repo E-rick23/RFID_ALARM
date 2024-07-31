@@ -5,6 +5,20 @@
 #include <MFRC522DriverPinSimple.h>
 #include <MFRC522Debug.h>
 #include <vector> 
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+
+#define BOTtoken "7070421976:AAEdf-M1HGIG6OSbHWFBqKQr0I5U4mJMoFY"
+#define CHAT_ID "6240132462"
+
+//Configuração do Wi-Fi
+const char* ssid = "sala203";
+const char* password = "s@l@203#";
+
+
+WiFiClientSecure client;
+UniversalTelegramBot bot(BOTtoken, client);
 
 #define SS_PIN 5  // ESP32 pin GPIO5 
 #define RST_PIN 21 // ESP32 pin GPIO27 
@@ -15,62 +29,89 @@
 //#define RELAY 26
 std::vector<String> allowedIDs;
 
-MFRC522DriverPinSimple ss_pin(SS_PIN); // Configurable, see typical pin layout above.
+MFRC522DriverPinSimple ss_pin(SS_PIN); // Configura o driver do sensor RFID
 
-MFRC522DriverSPI driver{ss_pin}; // Create SPI driver.
+MFRC522DriverSPI driver{ss_pin}; // Cria o driver
 
-MFRC522 mfrc522{driver}; // Create MFRC522 instance.
+MFRC522 mfrc522{driver}; // Cria a instância do sensor.
 
-String tagContent = "";
+String tagContent = ""; //String que grava a leitura atual
 
 #include "pitches.h"
-#define BUZZER_PIN  22 // ESP32 pin GPIO18 connected to piezo buzzer
 
-int noteDurations[] = {
-  4, 8, 8, 4, 4, 4, 4, 4
-};
+#define BUZZER_PIN  22 // Pino do BUzzer
 
+//Função que define o toque do buzzer.
 int melody[] = {
   NOTE_C8, NOTE_A7, NOTE_A7, NOTE_D8, NOTE_C7, 0, NOTE_C8, NOTE_C8
 };
 
+int melody2[] = {
+  NOTE_E7, NOTE_F7, NOTE_E7, NOTE_F7, NOTE_E7, NOTE_F7, NOTE_E7, NOTE_F7
+};
+
+//Função que dita a duração das notas.
+/*int noteDurations[] = {
+  4, 8, 8, 4, 4, 4, 4, 4
+};*/
+int noteDurations[] = {
+  4, 4, 4, 4, 4, 4, 4, 4
+};
+
+
 void setup() {
-  Serial.begin(115200); // Initialize serial communications with the PC for debugging.
-  mfrc522.PCD_Init();                                     // Init MFRC522 board.
-  pinMode(12, OUTPUT);
-  pinMode(14, OUTPUT);
+  Serial.begin(115200); // Comunicação serial para debug.
+
+ WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("Conectado ao WiFi");
+
+
+  mfrc522.PCD_Init(); // Iniciar o sensor RFID
+  //Definindo os pinos dos leds como output.
+  pinMode(RED_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  //Definindo botões como Input.
   pinMode(ADD_BUTTON, INPUT_PULLUP);
   pinMode(REMOVE_BUTTON, INPUT_PULLUP);
+  Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
+  
+
   //pinMode(RELAY, OUTPUT);
   //digitalWrite(RELAY, LOW);
-  addCard("73 2E 88 11");
-  Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 }
 
 //Função que lê o cartão.
 void readRfid() {
   String ID = "";
-  // Reset the loop if no new card present on the sensor/reader. This saves the entire process when idle.
+  // Reseta o loop se nenhum cartão for apresentado ao sensor.
   if (!mfrc522.PICC_IsNewCardPresent())
   {
     return;
   }
 
-  // Select one of the cards.
+  // Seleciona o cartão.
   if (!mfrc522.PICC_ReadCardSerial())
   {
     return;
   }
 
+  //Imprime o ID
   Serial.println("Imprimindo o ID:");
   Serial.println("--------------------------");
   ID = getID(tagContent);
-  permissionStatus(ID);
+  permissionStatus(ID); //Verifica se o ID está cadastrado ou não.
   Serial.println(ID);
-  ID = "";
+  ID = ""; //Limpa a variável ID após a execução.
 }
 
-//Isso vai ser importante dps confia
+//Função que adquire o ID
 String getID(String tagContent){
   for (byte i = 0; i < mfrc522.uid.size; i++) {
     tagContent.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
@@ -86,6 +127,7 @@ void permissionStatus(String tagContent){
     digitalWrite(GREEN_LED, HIGH);
     digitalWrite(RED_LED, LOW);
     Serial.println("true");
+    bot.sendMessage(CHAT_ID, "O acesso foi liberado, ID:" + tagContent);
     //digitalWrite(RELAY, LOW); //
     delay(1000);
     digitalWrite(GREEN_LED, LOW);
@@ -96,20 +138,24 @@ void permissionStatus(String tagContent){
     //digitalWrite(RELAY, HIGH); //
     Serial.println("false");
     bool alarm = true;
+
+    bot.sendMessage(CHAT_ID, "Um ID inválido foi apresentado, o alarme foi ativado!");
     while (alarm){
       for (int thisNote = 0; thisNote < 8; thisNote++) {
       int noteDuration = 1000 / noteDurations[thisNote];
-      tone(BUZZER_PIN, melody[thisNote], noteDuration);
+      tone(BUZZER_PIN, melody2[thisNote], noteDuration);
 
       int pauseBetweenNotes = noteDuration * 1.30;
       delay(pauseBetweenNotes);
       noTone(BUZZER_PIN);
       }
-      alarm = false;
+      alarm = false;  
     }
+    
   }
 }
 
+//Função que adiciona novas IDs de Tags ao sistema.
 void addCard(String newID) {
   if (std::find(allowedIDs.begin(), allowedIDs.end(), newID) == allowedIDs.end()) {
     allowedIDs.push_back(newID);
@@ -130,17 +176,11 @@ void removeCard(String removeID) {
   }
 }
 void loop() {
-  /*Serial.println("button 1: ");
-  Serial.print(digitalRead(ADD_BUTTON));
-  Serial.println("");*/
-  //Se o botão de adicionar for pressionado, adicione um ID a lista.
+  //Se o botão de adicionar for pressionado, adiciona ID do próximo cartão que for lido pelo sensor ao sistema.
   if (digitalRead(ADD_BUTTON) == 0){
     addCard(getID(tagContent));
   }
-  /*Serial.println("button 2: ");
-  Serial.print(digitalRead(REMOVE_BUTTON));
-  Serial.println("");*/
-  //Se o botão de remover for pressionado, remova um ID da lista.
+  //Se o botão de remover for pressionado, remove do sistema o ID do próximo cartão que for lido pelo sensor.
   if (digitalRead(REMOVE_BUTTON) == 0){
     removeCard(getID(tagContent));
   }
