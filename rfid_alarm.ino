@@ -160,6 +160,7 @@ void addCard(String newID) {
   if (std::find(allowedIDs.begin(), allowedIDs.end(), newID) == allowedIDs.end()) {
     allowedIDs.push_back(newID);
     Serial.println("Card added successfully!");
+    bot.sendMessage(CHAT_ID, "Um novo ID foi adicionado, ID: " + newID);
   } else {
     Serial.println("Card is already in the list.");
   }
@@ -171,6 +172,7 @@ void removeCard(String removeID) {
   if (it != allowedIDs.end()) {
     allowedIDs.erase(it);
     Serial.println("Card removed successfully!");
+     bot.sendMessage(CHAT_ID, "Um ID foi removido, ID: " + removeID);
   } else {
     Serial.println("Card not found in the list.");
   }
