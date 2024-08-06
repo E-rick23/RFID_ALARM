@@ -9,12 +9,12 @@
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 
-#define BOTtoken "7070421976:AAEdf-M1HGIG6OSbHWFBqKQr0I5U4mJMoFY"
-#define CHAT_ID "6240132462"
+#define BOTtoken ""
+#define CHAT_ID ""
 
 //Configuração do Wi-Fi
-const char* ssid = "sala203";
-const char* password = "s@l@203#";
+const char* ssid = "";
+const char* password = "";
 
 
 WiFiClientSecure client;
