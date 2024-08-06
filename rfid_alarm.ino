@@ -8,7 +8,9 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
+#include "pitches.h"
 
+//Definição do token e ID do Telegram
 #define BOTtoken ""
 #define CHAT_ID ""
 
@@ -16,48 +18,38 @@
 const char* ssid = "";
 const char* password = "";
 
-
+//Configurando o Cliente de Wi-Fi e o bot, utilizando o token e ID.
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
 
-#define SS_PIN 5  // ESP32 pin GPIO5 
-#define RST_PIN 21 // ESP32 pin GPIO27 
+//Definindo pinos do Sensor RFID
+#define SS_PIN 5  
+#define RST_PIN 21
+
+//Definindo pinos dos botões, buzzer e LEDs.
 #define RED_LED 12 
 #define GREEN_LED 14
 #define ADD_BUTTON 33
 #define REMOVE_BUTTON 32
+#define BUZZER_PIN  22
 //#define RELAY 26
 std::vector<String> allowedIDs;
 
-MFRC522DriverPinSimple ss_pin(SS_PIN); // Configura o driver do sensor RFID
-
+// Configurações do driver do sensor RFID
+MFRC522DriverPinSimple ss_pin(SS_PIN); 
 MFRC522DriverSPI driver{ss_pin}; // Cria o driver
-
 MFRC522 mfrc522{driver}; // Cria a instância do sensor.
 
 String tagContent = ""; //String que grava a leitura atual
 
-#include "pitches.h"
-
-#define BUZZER_PIN  22 // Pino do BUzzer
-
-//Função que define o toque do buzzer.
-int melody[] = {
-  NOTE_C8, NOTE_A7, NOTE_A7, NOTE_D8, NOTE_C7, 0, NOTE_C8, NOTE_C8
-};
-
+//Funções que definem o toque do buzzer.
 int melody2[] = {
   NOTE_E7, NOTE_F7, NOTE_E7, NOTE_F7, NOTE_E7, NOTE_F7, NOTE_E7, NOTE_F7
 };
 
-//Função que dita a duração das notas.
-/*int noteDurations[] = {
-  4, 8, 8, 4, 4, 4, 4, 4
-};*/
 int noteDurations[] = {
   4, 4, 4, 4, 4, 4, 4, 4
 };
-
 
 void setup() {
   Serial.begin(115200); // Comunicação serial para debug.
@@ -81,34 +73,6 @@ void setup() {
   pinMode(ADD_BUTTON, INPUT_PULLUP);
   pinMode(REMOVE_BUTTON, INPUT_PULLUP);
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
-  
-
-  //pinMode(RELAY, OUTPUT);
-  //digitalWrite(RELAY, LOW);
-}
-
-//Função que lê o cartão.
-void readRfid() {
-  String ID = "";
-  // Reseta o loop se nenhum cartão for apresentado ao sensor.
-  if (!mfrc522.PICC_IsNewCardPresent())
-  {
-    return;
-  }
-
-  // Seleciona o cartão.
-  if (!mfrc522.PICC_ReadCardSerial())
-  {
-    return;
-  }
-
-  //Imprime o ID
-  Serial.println("Imprimindo o ID:");
-  Serial.println("--------------------------");
-  ID = getID(tagContent);
-  permissionStatus(ID); //Verifica se o ID está cadastrado ou não.
-  Serial.println(ID);
-  ID = ""; //Limpa a variável ID após a execução.
 }
 
 //Função que adquire o ID
@@ -121,24 +85,40 @@ String getID(String tagContent){
   tagContent.toUpperCase();
   return tagContent;
 }
-//Função que libera a tranca
+
+//Função que lê o cartão.
+void readRfid() {
+  String ID = "";
+  // Reseta o loop se nenhum cartão for apresentado ao sensor.
+  if (!mfrc522.PICC_IsNewCardPresent()){
+    return;
+  }
+  // Seleciona o cartão.
+  if (!mfrc522.PICC_ReadCardSerial()){
+    return;
+  }
+  Serial.println("Imprimindo o ID:");
+  Serial.println("--------------------------");
+  ID = getID(tagContent);
+  permissionStatus(ID); //Verifica se o ID está cadastrado ou não.
+  Serial.println(ID); //Imprime o ID
+  ID = ""; //Limpa a variável ID após a execução.
+}
+
+//Função que determina se o ID apresentado é válido ou não.
 void permissionStatus(String tagContent){
   if(std::find(allowedIDs.begin(), allowedIDs.end(), tagContent) != allowedIDs.end()){
     digitalWrite(GREEN_LED, HIGH);
     digitalWrite(RED_LED, LOW);
     Serial.println("true");
     bot.sendMessage(CHAT_ID, "O acesso foi liberado, ID:" + tagContent);
-    //digitalWrite(RELAY, LOW); //
     delay(1000);
     digitalWrite(GREEN_LED, LOW);
-  }
-  else{
+  } else {
     digitalWrite(RED_LED, HIGH);
     digitalWrite(GREEN_LED, LOW);
-    //digitalWrite(RELAY, HIGH); //
     Serial.println("false");
     bool alarm = true;
-
     bot.sendMessage(CHAT_ID, "Um ID inválido foi apresentado, o alarme foi ativado!");
     while (alarm){
       for (int thisNote = 0; thisNote < 8; thisNote++) {
@@ -151,7 +131,6 @@ void permissionStatus(String tagContent){
       }
       alarm = false;  
     }
-    
   }
 }
 
@@ -159,10 +138,10 @@ void permissionStatus(String tagContent){
 void addCard(String newID) {
   if (std::find(allowedIDs.begin(), allowedIDs.end(), newID) == allowedIDs.end()) {
     allowedIDs.push_back(newID);
-    Serial.println("Card added successfully!");
-    bot.sendMessage(CHAT_ID, "Um novo ID foi adicionado, ID: " + newID);
+    Serial.println("Cartão adicionado com sucesso!");
+    bot.sendMessage(CHAT_ID, "Um novo ID foi adicionado, ID:" + newID);
   } else {
-    Serial.println("Card is already in the list.");
+    Serial.println("Cartão já adicionado!");
   }
 }
 
@@ -171,13 +150,14 @@ void removeCard(String removeID) {
   auto it = std::find(allowedIDs.begin(), allowedIDs.end(), removeID);
   if (it != allowedIDs.end()) {
     allowedIDs.erase(it);
-    Serial.println("Card removed successfully!");
-     bot.sendMessage(CHAT_ID, "Um ID foi removido, ID: " + removeID);
+    Serial.println("Cartão removido com sucesso!");
+     bot.sendMessage(CHAT_ID, "Um ID foi removido, ID:" + removeID);
   } else {
-    Serial.println("Card not found in the list.");
+    Serial.println("O cartão não foi encontrado na lista!");
   }
 }
 
+//Variáveis dos botões.
 bool registryButtonPressed = false;
 bool removeButtonPressed = false;
 
@@ -200,5 +180,4 @@ void loop() {
   if (digitalRead(ADD_BUTTON) == HIGH && digitalRead(REMOVE_BUTTON) == HIGH){
     readRfid();
   }
-  
 }
