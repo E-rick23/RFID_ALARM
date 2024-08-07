@@ -83,6 +83,7 @@ String getID(String tagContent){
   }
   tagContent.remove(tagContent.indexOf(' '), 1); //Remove o primeiro espaço do ID
   tagContent.toUpperCase();
+  
   return tagContent;
 }
 
@@ -135,7 +136,17 @@ void permissionStatus(String tagContent){
 }
 
 //Função que adiciona novas IDs de Tags ao sistema.
-void addCard(String newID) {
+void addCard() {
+  String newID;
+  bool cardRead = false;
+  do {
+    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
+      newID = getID(tagContent);
+      cardRead = true;
+    }
+  } while (!cardRead);
+
+
   if (std::find(allowedIDs.begin(), allowedIDs.end(), newID) == allowedIDs.end()) {
     allowedIDs.push_back(newID);
     Serial.println("Cartão adicionado com sucesso!");
@@ -146,12 +157,21 @@ void addCard(String newID) {
 }
 
 // Função para remover um cartão da lista de IDs permitidos
-void removeCard(String removeID) {
+void removeCard() {
+  String removeID;
+  bool cardRead = false;
+  do {
+    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
+      removeID = getID(tagContent);
+      cardRead = true;
+    }
+  } while (!cardRead);
+
   auto it = std::find(allowedIDs.begin(), allowedIDs.end(), removeID);
   if (it != allowedIDs.end()) {
     allowedIDs.erase(it);
     Serial.println("Cartão removido com sucesso!");
-     bot.sendMessage(CHAT_ID, "Um ID foi removido, ID:" + removeID);
+    bot.sendMessage(CHAT_ID, "Um ID foi removido, ID:" + removeID);
   } else {
     Serial.println("O cartão não foi encontrado na lista!");
   }
@@ -165,14 +185,14 @@ void loop() {
   //Se o botão de adicionar for pressionado, adiciona ID do próximo cartão que for lido pelo sensor ao sistema.
   if (digitalRead(ADD_BUTTON) == LOW && !registryButtonPressed) {
     registryButtonPressed = true;
-    addCard(getID(tagContent));
+    addCard();
   } else if(digitalRead(ADD_BUTTON) == HIGH) {
     registryButtonPressed = false;
   }
   //Se o botão de remover for pressionado, remove do sistema o ID do próximo cartão que for lido pelo sensor.
   if (digitalRead(REMOVE_BUTTON) == LOW && !removeButtonPressed){
     removeButtonPressed = true;
-    removeCard(getID(tagContent));
+    removeCard();
   } else if(digitalRead(REMOVE_BUTTON) == HIGH) {
     removeButtonPressed = false;
   }
